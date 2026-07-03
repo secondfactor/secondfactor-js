@@ -1,0 +1,9 @@
+{
+  "name": "@secondfactor/otp",
+  "version": "0.1.0",
+  "description": "secondfactor.ai OTP client for React Native and web — start/verify/resend against your backend proxy.",
+  "main": "index.ts",
+  "types": "index.ts",
+  "license": "MIT",
+  "keywords": ["otp", "2fa", "sms", "whatsapp", "secondfactor"]
+}
