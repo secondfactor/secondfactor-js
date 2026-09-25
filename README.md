@@ -11,17 +11,20 @@ import { SecondFactor } from "@secondfactor/otp";
 
 const sf = new SecondFactor("https://api.yourapp.com/auth/otp");
 
-const requestId = await sf.start("+9779841000001");
+let requestId = await sf.start("+9779841000001");
 if (await sf.verify(requestId, code)) { /* create session */ }
 
 // resend button: enable when sf.resendAvailableIn === 0
-await sf.resend(requestId);
+requestId = await sf.resend(requestId); // a resend is a new sid: verify against it
 ```
 
 Works in React Native, Expo, and any browser (uses `fetch`). No dependencies.
 
 ## Errors
 
-All methods throw a `SecondFactorException`/`SecondFactorError` carrying the
-server `detail` message and optional `code` (`rate_limited`, `burst`,
-`unreachable`, `blocked_by_policy`, ...). Show `detail` to users; branch on `code`.
+`verify` returns `false` for a wrong code the user can retry. Everything else
+throws a `SecondFactorError` / `SecondFactorException` carrying secondfactor.ai's
+`message`, the HTTP `status`, and a `code` to branch on: an error slug such as
+`rate_limited`, `burst`, `unreachable` or `blocked_by_policy`, or — when a
+verification can no longer be approved — the state it ended in (`EXPIRED`,
+`LOCKED`, `VERIFIED`), where only a resend helps. Show `message` to users.
