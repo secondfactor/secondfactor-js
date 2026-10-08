@@ -23,8 +23,8 @@ cannot trust a workflow for a package that does not exist yet. Every later
 release is built and published by the `publish` workflow in this repository
 through npm trusted publishing, and carries a signed npm provenance statement
 that links the tarball to the exact workflow run and commit that produced it.
-After the first release, the package refuses token-based publishing entirely,
-so no later release can come from a personal machine.
+The package refuses token-based publishing entirely, so no release can come
+from a personal machine.
 
 To check the packages you have installed, run:
 

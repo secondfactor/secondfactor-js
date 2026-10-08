@@ -1,6 +1,6 @@
 {
   "name": "@secondfactor/js",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "secondfactor.ai for browsers and React Native: headless phone verification against a session your server created. No dependencies.",
   "license": "MIT",
   "type": "module",
