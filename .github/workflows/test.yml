@@ -2,24 +2,85 @@ name: test
 
 on:
   push:
-    branches: [main]
   pull_request:
+  # The publish workflow calls this one, so nothing is released without a
+  # green run of the full matrix on the exact commit being published.
+  workflow_call:
+
+# Tests need nothing beyond reading the code. Pull requests from forks run
+# here too, so the token must never be able to write.
+permissions:
+  contents: read
+
+# A newer push to the same branch makes an older run's result irrelevant. The
+# event name keeps a release's test run apart from the push runs.
+concurrency:
+  group: test-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  unittest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     strategy:
+      # Run every version to the end, so one failure does not hide another.
+      fail-fast: false
       matrix:
-        node-version: [20, 22, 24]
+        # The Node.js lines still supported upstream that the toolchain runs
+        # on: tsdown needs ^22.18.0, ^24.11.0 or >=26.0.0, and Node.js 20
+        # reached its end of life on 2026-04-30. The library itself runs in
+        # browsers and React Native; Node.js only builds and tests it.
+        node-version: [22, 24, 26]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ matrix.node-version }}
-          cache: npm
-      - run: npm ci
-      - run: npm run typecheck
+          # The lockfile pins two development tools and the package has no
+          # dependencies, so a cache saves little and would only be another
+          # input that other runs can write to.
+          package-manager-cache: false
+      - name: Install from the lockfile
+        # No install scripts run: nothing in the tree needs one, and a
+        # compromised dependency's script would run with this job's token.
+        run: npm ci --ignore-scripts
+      - name: Every installed package carries a valid registry signature
+        run: npm audit signatures
+      - name: The published package has no known vulnerabilities
+        # It has no runtime dependencies, so this stays empty unless one is
+        # added.
+        run: npm audit --omit=dev
+      - name: Type-check
+        run: npm run typecheck
       - name: Build and test the built package
         run: npm test
-      - name: The package contains only what it should
-        run: npm pack --dry-run
+      - name: The package contains exactly the files it should
+        run: |
+          expected="CHANGELOG.md LICENSE README.md dist/index.cjs dist/index.d.cts dist/index.d.ts dist/index.js package.json"
+          actual="$(npm pack --dry-run --json --ignore-scripts | node -e '
+            let input = "";
+            process.stdin.on("data", (chunk) => (input += chunk));
+            process.stdin.on("end", () => {
+              console.log(JSON.parse(input)[0].files.map((file) => file.path).sort().join(" "));
+            });
+          ')"
+          echo "packed: $actual"
+          if [ "$actual" != "$expected" ]; then
+            echo "expected: $expected" >&2
+            exit 1
+          fi
+
+  # A single, stable check name to require in branch protection, so the
+  # requirement does not need editing whenever the matrix changes.
+  ci:
+    if: always()
+    needs: unittest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Every Node.js version passed
+        env:
+          RESULT: ${{ needs.unittest.result }}
+        run: test "$RESULT" = "success"
