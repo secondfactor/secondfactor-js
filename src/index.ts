@@ -29,7 +29,7 @@
  * is a stable string to branch on.
  */
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.1.1";
 
 /** Sent on every request. Browsers forbid setting `User-Agent`. */
 export const CLIENT_HEADER = `secondfactor-js/${VERSION}`;

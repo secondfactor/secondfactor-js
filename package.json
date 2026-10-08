@@ -1,6 +1,6 @@
 {
   "name": "@secondfactor/js",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "secondfactor.ai for browsers and React Native: headless phone verification against a session your server created. No dependencies.",
   "license": "MIT",
   "type": "module",
@@ -40,7 +40,16 @@
     "url": "https://github.com/secondfactor/secondfactor-js/issues"
   },
   "homepage": "https://secondfactor.ai",
-  "keywords": ["otp", "2fa", "phone-verification", "sms", "whatsapp", "react", "react-native", "secondfactor"],
+  "keywords": [
+    "otp",
+    "2fa",
+    "phone-verification",
+    "sms",
+    "whatsapp",
+    "react",
+    "react-native",
+    "secondfactor"
+  ],
   "publishConfig": {
     "access": "public"
   },

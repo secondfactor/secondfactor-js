@@ -3,6 +3,15 @@
 All notable changes to `@secondfactor/js` are recorded here. The project
 follows [Semantic Versioning](https://semver.org/).
 
+## 0.1.1 — 2026-10-08
+
+No changes to the library's code or behaviour.
+
+- The first release built and published by this repository's `publish`
+  workflow through npm trusted publishing. It carries a provenance
+  attestation that links the package to the exact commit and workflow run
+  that produced it, which `npm audit signatures` verifies.
+
 ## 0.1.0 — 2026-10-08
 
 The first release on npm. Before it, this library was a TypeScript file
