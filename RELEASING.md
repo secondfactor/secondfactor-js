@@ -2,59 +2,7 @@
 
 Releases are published to npm as `@secondfactor/js` by the `publish` GitHub
 Actions workflow. The workflow never runs on its own: a maintainer starts it by
-hand from the Actions tab, and it publishes only from `main`. The very first
-release is the exception, and is published by hand as described below.
-
-## Prerequisites
-
-- The `secondfactor` organization exists on npm, which owns the
-  `@secondfactor` scope.
-- The account that publishes the first release is a member of that
-  organization with publish rights, and has two-factor authentication turned
-  on for its account.
-
-## The first release, by hand
-
-npm cannot configure trusted publishing for a package that does not exist yet,
-so the first version is published from a maintainer's machine, once:
-
-1. Sign in: `npm login`.
-2. Make a clean checkout of `main`, with nothing uncommitted:
-
-   ```bash
-   git clone https://github.com/secondfactor/secondfactor-js.git
-   cd secondfactor-js
-   npm ci
-   ```
-
-3. Check exactly what will be published: `npm pack --dry-run`. The list must be
-   the four files under `dist/` (`index.js`, `index.cjs`, `index.d.ts`,
-   `index.d.cts`), `README.md`, `CHANGELOG.md`, `LICENSE` and `package.json`,
-   and nothing else.
-4. Publish: `npm publish --access public`. `prepublishOnly` type-checks, builds
-   and tests first, so a failing build cannot be published.
-5. Tag the commit and push the tag: `git tag v<version> && git push origin
-   v<version>`.
-
-Then, straight away, make the workflow the only way to publish:
-
-6. Configure the trusted publisher. On npmjs.com, open the package's
-   **Settings**, and under **Trusted Publisher** choose GitHub Actions with
-   owner `secondfactor`, repository `secondfactor-js`, workflow filename
-   `publish.yml` and environment `npm`. Alternatively, with npm 11.15.0 or
-   later and two-factor authentication on the account:
-
-   ```bash
-   npm trust github @secondfactor/js --repo secondfactor/secondfactor-js --file publish.yml --env npm --allow-publish
-   ```
-
-   A newly created trusted publisher must complete its first successful
-   publish within two days, or it has to be created again.
-7. Under **Settings → Publishing access**, choose **Require two-factor
-   authentication and disallow tokens**. Trusted publishing keeps working;
-   every token, including any created by mistake later, can no longer publish.
-
-No npm token exists for this package, and none should be created.
+hand from the Actions tab, and it publishes only from `main`.
 
 ## How the repository is protected
 
@@ -76,7 +24,14 @@ recorded here. Keep them in place; the release process depends on them.
 - **Secret scanning** with push protection, **Dependabot** alerts and security
   updates, and **private vulnerability reporting** are on.
 
-## Each later release
+npm must trust the workflow: on the `@secondfactor/js` package, under
+**Settings → Trusted Publisher**, a GitHub Actions publisher names owner
+`secondfactor`, repository `secondfactor-js`, workflow `publish.yml` and
+environment `npm`. Keep **Settings → Publishing access** on **Require
+two-factor authentication and disallow tokens**, so that only the workflow can
+publish. No npm token exists for this package, and none should be created.
+
+## Each release
 
 1. Choose the version under [Semantic Versioning](https://semver.org/). Set it
    in **both** `package.json` (`npm version <version> --no-git-tag-version`

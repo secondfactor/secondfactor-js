@@ -3,6 +3,13 @@
 All notable changes to `@secondfactor/js` are recorded here. The project
 follows [Semantic Versioning](https://semver.org/).
 
+## 0.1.2 — 2026-10-08
+
+No changes to the library's code or behaviour.
+
+- `RELEASING.md` and `SECURITY.md` no longer describe the first, hand-made
+  release as a step still to come.
+
 ## 0.1.1 — 2026-10-08
 
 No changes to the library's code or behaviour.
