@@ -29,3 +29,30 @@ downloaded from the secondfactor.ai dashboard as `@secondfactor/otp`.
 ### Deprecated
 
 - Proxy mode's `start` and `verify`: use `send` and `check`.
+
+### Security
+
+- Redirects are refused rather than followed, in both modes. `fetch` would
+  resend the body, with the phone number or the code, and custom headers to
+  whatever host a redirect names, and older runtimes the `Authorization` header
+  with the client token too. A redirect now throws `SecondFactorError` with
+  `code` null and the redirect's status (null in browsers, which hide it).
+  React Native's `fetch` follows redirects whatever it is told, so there an
+  answer whose final URL is not the one requested is refused instead.
+- `baseUrl`, and proxy mode's base URL, must use `https://`. Plain `http://` is
+  accepted only for `localhost`, `127.0.0.1` and `[::1]`, so nothing crosses a
+  network unencrypted. URLs with a user name, password, query or fragment, and
+  other schemes, are refused with a `TypeError`. A proxy may still be a path on
+  the page's own origin, such as `/auth/otp`, but not a protocol-relative URL.
+- Session mode's `check()` resolves `verified: true` only when the API answers
+  that the session is `VERIFIED`, rather than for any successful status.
+- A successful answer whose body is not a JSON object, or in session mode not
+  the session's state, throws `SecondFactorError` (`code` null) instead of
+  resolving. Before, a captive portal's HTML page answering 200 to `check()`
+  resolved `verified: true`.
+- The client token is held in a private field, so logging or serialising the
+  session no longer shows it. A token that could not be a header value is
+  refused with a `TypeError` that does not repeat it.
+- Proxy mode requests time out after `timeoutMs` (10 seconds by default), as
+  session requests already did. Where `AbortSignal.timeout` is missing, as on
+  older React Native, both modes fall back to an `AbortController`.
