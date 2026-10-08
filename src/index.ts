@@ -38,6 +38,11 @@ const DEFAULT_BASE_URL = "https://api.secondfactor.ai";
 const HOSTED_PATH = "/api/hosted/session";
 const DEFAULT_TIMEOUT_MS = 10_000;
 
+// Plain http:// is accepted only for these hosts, so a local stub can be used
+// in development while the client token, the phone number and the code never
+// cross a network unencrypted.
+const LOOPBACK_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
+
 export type SessionStatus = "OPEN" | "VERIFIED" | "CANCELED" | "FAILED" | "EXPIRED";
 
 /** A session's state, as every session call returns it.
@@ -64,7 +69,12 @@ export interface SendResult extends SessionState {
 }
 
 export interface CheckResult extends SessionState {
-  /** True when the code was right. Confirm on your server before acting on it. */
+  /**
+   * True only when the API answered that the session is now `VERIFIED`. Use
+   * it to move your screens on, never as proof: anyone can change what runs
+   * on their own device. Sign nobody in until your server has confirmed the
+   * session it stored.
+   */
   verified: boolean;
 }
 
@@ -72,6 +82,9 @@ export interface CheckResult extends SessionState {
 export interface Verification {
   sid: string;
   status: string;
+  /** True only when the proxy answered with status `VERIFIED`. As in session
+   * mode, it drives the screens and proves nothing: your server must record
+   * the verification from the answer it received itself. */
   verified: boolean;
   [field: string]: unknown;
 }
@@ -132,7 +145,9 @@ export class SecondFactorError extends Error {
 }
 
 export interface SessionOptions {
-  /** The API origin. `https://api.secondfactor.ai` by default. */
+  /** The API origin. `https://api.secondfactor.ai` by default. It must use
+   * `https://`; plain `http://` is accepted only for `localhost`,
+   * `127.0.0.1` and `[::1]`. */
   baseUrl?: string;
   /** Per request; 10 seconds by default. */
   timeoutMs?: number;
@@ -142,15 +157,23 @@ export interface SessionOptions {
 
 /** One headless verification session, reached with its client token. */
 export class VerificationSession {
-  private readonly token: string;
+  // A true private field, so logging the session, serialising it or handing
+  // it to an error reporter never shows the token.
+  readonly #token: string;
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
   private readonly fetch: typeof fetch;
 
   constructor(clientToken: string, options: SessionOptions = {}) {
     if (!clientToken) throw new TypeError("clientToken is required.");
-    this.token = clientToken;
-    this.baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
+    // A token is sent as a header value, so anything else could inject a
+    // header, or end up quoted in the runtime's error message. The value is
+    // never repeated in the error, in case it is a secret pasted by mistake.
+    if (typeof clientToken !== "string" || !/^[\x21-\x7e]+$/.test(clientToken)) {
+      throw new TypeError("clientToken is not a valid client token.");
+    }
+    this.#token = clientToken;
+    this.baseUrl = checkedBaseUrl(options.baseUrl ?? DEFAULT_BASE_URL, "baseUrl", false);
     this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.fetch = resolveFetch(options.fetch);
   }
@@ -190,7 +213,9 @@ export class VerificationSession {
    */
   async check(code: string): Promise<CheckResult> {
     const { response, body } = await this.request("POST", "/check", { code: String(code).trim() });
-    if (response.ok) return { ...(body as SessionState), verified: true };
+    // Fails closed: only the documented success, the session now VERIFIED,
+    // counts as verified.
+    if (response.ok) return { ...(body as SessionState), verified: body.status === "VERIFIED" };
     if (response.status === 422 && isState(body)) return { ...body, verified: false };
     throw sessionError(response.status, body);
   }
@@ -210,7 +235,7 @@ export class VerificationSession {
       credentials: "omit",
       headers: {
         Accept: "application/json",
-        Authorization: `Session ${this.token}`,
+        Authorization: `Session ${this.#token}`,
         "X-SF-Client": CLIENT_HEADER,
         ...(json === undefined ? {} : { "Content-Type": "application/json" }),
         ...headers,
@@ -218,7 +243,13 @@ export class VerificationSession {
       ...(json === undefined ? {} : { body: JSON.stringify(json) }),
       ...timeoutSignal(this.timeoutMs),
     };
-    return call(this.fetch, this.baseUrl + HOSTED_PATH + path, init);
+    const answer = await call(this.fetch, this.baseUrl + HOSTED_PATH + path, init);
+    // Every successful session call answers with the session's state. Anything
+    // else, such as a captive portal's page, is not an answer to trust.
+    if (answer.response.ok && !isState(answer.body)) {
+      throw new SecondFactorError("secondfactor.ai answered without the session's state.", null, answer.response.status);
+    }
+    return answer;
   }
 }
 
@@ -239,6 +270,7 @@ export class SecondFactor {
 
   private readonly baseUrl: string;
   private readonly cooldownSeconds: number;
+  private readonly timeoutMs: number;
   private readonly fetch: typeof fetch;
   private lastSendAt = 0;
 
@@ -247,14 +279,19 @@ export class SecondFactor {
    *
    * @param proxyBaseUrl Your own endpoints' base, which serve `/start`,
    *   `/verify` and `/resend` and pass secondfactor.ai's answer through with
-   *   its status code.
+   *   its status code. A path on the page's own origin, such as `/auth/otp`,
+   *   or an `https://` URL; plain `http://` only for `localhost`, `127.0.0.1`
+   *   and `[::1]`.
    * @param resendCooldownSeconds For `resendAvailableIn`; 30 by default, the
    *   same as the API's.
+   * @param options `fetch` to use instead of the global one, and `timeoutMs`
+   *   per request, 10 seconds by default.
    */
-  constructor(proxyBaseUrl: string, resendCooldownSeconds = 30, options: { fetch?: typeof fetch } = {}) {
+  constructor(proxyBaseUrl: string, resendCooldownSeconds = 30, options: { fetch?: typeof fetch; timeoutMs?: number } = {}) {
     if (!proxyBaseUrl) throw new TypeError("proxyBaseUrl is required.");
-    this.baseUrl = proxyBaseUrl.replace(/\/+$/, "");
+    this.baseUrl = checkedBaseUrl(proxyBaseUrl, "proxyBaseUrl", true);
     this.cooldownSeconds = resendCooldownSeconds;
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     this.fetch = resolveFetch(options.fetch);
   }
 
@@ -313,6 +350,7 @@ export class SecondFactor {
       // your proxy, which existing proxies are not set up to answer.
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(json),
+      ...timeoutSignal(this.timeoutMs),
     });
   }
 }
@@ -327,12 +365,51 @@ function resolveFetch(fetchImpl?: typeof fetch): typeof fetch {
   return resolved;
 }
 
-/** `AbortSignal.timeout` where the platform has it. Older React Native
- * runtimes do not, and there the platform's own timeout applies. */
+/**
+ * The base URL in a canonical form, or a TypeError when it could carry the
+ * token or the code anywhere but where it should, unencrypted.
+ *
+ * It is parsed by hand because React Native's `URL` does not implement
+ * `protocol` or `hostname`. The scheme and host are lower-cased and a default
+ * port dropped, so the URL a request is sent to compares equal with the final
+ * URL the runtime reports (see `call`). With `allowPath`, a path on the page's
+ * own origin is accepted too, for a proxy, but not a protocol-relative one.
+ */
+function checkedBaseUrl(value: string, name: string, allowPath: boolean): string {
+  const refuse = () =>
+    new TypeError(`${name} must be an https:// URL; plain http:// is accepted only for localhost, 127.0.0.1 and [::1].`);
+  // Visible ASCII only: no spaces or control characters, which URL parsers
+  // strip or reinterpret in ways that differ from this check.
+  if (typeof value !== "string" || !/^[\x21-\x7e]+$/.test(value)) throw refuse();
+  if (allowPath && /^\/(?![\/\\])/.test(value) && !/[?#\\]/.test(value)) return value.replace(/\/+$/, "");
+  const url = /^([a-z][a-z0-9+.-]*):\/\/([^/?#\\]*)([^?#\\]*)$/i.exec(value);
+  // No user name or password, which would also hide the real host, and the
+  // host is a name or an IPv6 literal, with an optional port.
+  const authority = url && /^(\[[0-9a-f:.]+\]|[a-z0-9._-]+)(?::([0-9]{1,5}))?$/i.exec(url[2]);
+  if (!url || !authority) throw refuse();
+  const scheme = url[1].toLowerCase();
+  const host = authority[1].toLowerCase();
+  if (!(scheme === "https" || (scheme === "http" && LOOPBACK_HOSTS.includes(host)))) throw refuse();
+  const port = authority[2] && authority[2] !== (scheme === "https" ? "443" : "80") ? `:${authority[2]}` : "";
+  return `${scheme}://${host}${port}${url[3]}`.replace(/\/+$/, "");
+}
+
+/** A signal that aborts the request, and the reading of its answer, after
+ * `ms`. Older React Native runtimes lack `AbortSignal.timeout` but have
+ * `AbortController`, which their fetch honours. */
 function timeoutSignal(ms: number): { signal?: AbortSignal } {
-  return typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function"
-    ? { signal: AbortSignal.timeout(ms) }
-    : {};
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return { signal: AbortSignal.timeout(ms) };
+  }
+  if (typeof AbortController === "function") {
+    const controller = new AbortController();
+    // The timer is not cleared once the answer arrives. Aborting a finished
+    // request does nothing, so the cost is one idle timer per call, which is
+    // acceptable for the few calls a verification makes.
+    setTimeout(() => controller.abort(), ms);
+    return { signal: controller.signal };
+  }
+  return {};
 }
 
 /** A key naming one user action. It needs to be unique, not secret, so the
@@ -349,12 +426,35 @@ type Body = Record<string, any>;
 async function call(fetchImpl: typeof fetch, url: string, init: RequestInit) {
   let response: Response;
   try {
-    response = await fetchImpl(url, init);
+    // Never follow a redirect. fetch would resend the body, with the phone
+    // number or the code, and custom headers to whatever the Location names,
+    // and older runtimes the Authorization header too. Neither the API nor a
+    // proxy has a reason to redirect, so one means something in between is
+    // wrong. `manual` hands the redirect back instead of following it.
+    response = await fetchImpl(url, { ...init, redirect: "manual" });
   } catch (cause) {
     throw new SecondFactorError(`secondfactor.ai unreachable: ${(cause as Error)?.message ?? cause}`, "network_error", null);
   }
-  const body: unknown = await response.json().catch(() => ({}));
-  return { response, body: (body ?? {}) as Body };
+  // Node answers a refused redirect with its 3xx status, browsers with an
+  // opaque response whose status is 0. React Native ignores `redirect` and
+  // follows it, and sets no `redirected` flag, but reports the final URL, so
+  // an answer from anywhere else is refused there before it is read.
+  if (
+    response.type === "opaqueredirect" ||
+    (response.status >= 300 && response.status < 400) ||
+    response.redirected === true ||
+    (response.redirected === undefined && !!response.url && response.url !== url)
+  ) {
+    throw new SecondFactorError("secondfactor.ai answered with a redirect, which is never followed.", null, response.status || null);
+  }
+  const parsed: unknown = await response.json().catch(() => undefined);
+  const isObject = typeof parsed === "object" && parsed !== null && !Array.isArray(parsed);
+  // A success must be a JSON object. Anything else, such as an HTML page from
+  // a captive portal or a misconfigured proxy, is never taken as an answer.
+  if (response.ok && !isObject) {
+    throw new SecondFactorError(`secondfactor.ai answered HTTP ${response.status} with a body that is not a JSON object.`, null, response.status);
+  }
+  return { response, body: (isObject ? parsed : {}) as Body };
 }
 
 function isState(body: unknown): body is SessionState {

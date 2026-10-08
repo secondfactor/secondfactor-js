@@ -7,8 +7,8 @@ declarations are included.
 
 This library runs on the **user's device**, so it never holds your API key.
 Your server holds the key and uses the server library,
-[`secondfactor`](https://github.com/lambda-payments/secondfactor-node) on npm
-(or [`secondfactor`](https://github.com/lambda-payments/secondfactor-python) on
+[`secondfactor`](https://github.com/secondfactor/secondfactor-node) on npm
+(or [`secondfactor`](https://github.com/secondfactor/secondfactor-python) on
 PyPI).
 
 > **Act on the result on your server. Never trust `verified` in the browser.**
@@ -22,11 +22,8 @@ PyPI).
 npm install @secondfactor/js
 ```
 
-Until the first release is on npm, install it from this repository:
-
-```bash
-npm install github:lambda-payments/secondfactor-js
-```
+Every release is published from this repository's `publish` workflow with npm
+provenance; see [SECURITY.md](SECURITY.md) to verify one.
 
 ## Headless verification
 
@@ -158,6 +155,10 @@ sid = await sf.resend(sid);               // a resend is a new SID: check agains
 // sf.resendAvailableIn: seconds until resend is allowed
 ```
 
+As in session mode, `verified` only drives the screens. Your proxy sees
+secondfactor.ai's answer itself, so record the verification there and act on
+that record, never on what the browser reports.
+
 `start` and `verify` still work and are deprecated: use `send` and `check`.
 New apps should use session mode, which needs no proxy.
 
@@ -165,7 +166,25 @@ New apps should use session mode, which needs no proxy.
 
 `SecondFactor.withSession(clientToken, options)` takes `baseUrl` (the API
 origin, `https://api.secondfactor.ai` by default), `timeoutMs` (10 seconds by
-default) and `fetch` (to use instead of the global one).
+default) and `fetch` (to use instead of the global one). Proxy mode's third
+argument takes `timeoutMs` and `fetch` too.
+
+## Security
+
+- The client token is the only credential this library holds. It is sent in
+  the `Authorization` header, never in a URL, and is not shown when the session
+  object is logged or serialised. Never give this library your API key.
+- `baseUrl` must be an `https://` URL; plain `http://` is accepted only for
+  `localhost`, `127.0.0.1` and `[::1]`. A proxy may also be a path on the
+  page's own origin, such as `/auth/otp`.
+- Redirects are never followed: a redirect becomes a `SecondFactorError` with
+  `code` null. React Native's `fetch` follows redirects regardless, so there
+  the answer from the redirected URL is refused instead.
+- `verified` is true only when the API says the session is `VERIFIED`, and a
+  successful answer that is not the expected JSON becomes a
+  `SecondFactorError`, never a result.
+
+Report a vulnerability privately as described in [SECURITY.md](SECURITY.md).
 
 ## Development
 
