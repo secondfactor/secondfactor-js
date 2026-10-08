@@ -3,7 +3,7 @@
 All notable changes to `@secondfactor/js` are recorded here. The project
 follows [Semantic Versioning](https://semver.org/).
 
-## 0.1.0 — unreleased
+## 0.1.0 — 2026-10-08
 
 The first release on npm. Before it, this library was a TypeScript file
 downloaded from the secondfactor.ai dashboard as `@secondfactor/otp`.
