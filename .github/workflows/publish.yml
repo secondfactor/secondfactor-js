@@ -103,10 +103,12 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           # Node.js 24 bundles npm 11 (11.19.0 in 24.21.0), above the 11.5.1
-          # trusted publishing needs. No `registry-url`: npm exchanges the
-          # OIDC token with its default registry, registry.npmjs.org, and
-          # needs no .npmrc for it.
+          # trusted publishing needs.
           node-version: 24
+          # As in npm's own trusted publishing example, and as the Node.js
+          # library's identical workflow has published with: it names the
+          # registry the OIDC token is exchanged with.
+          registry-url: "https://registry.npmjs.org"
           package-manager-cache: false
       - name: Publish with provenance
         # Provenance is generated automatically for a public package published
@@ -115,7 +117,9 @@ jobs:
           VERSION: ${{ needs.build.outputs.version }}
         run: |
           npm --version
-          npm publish "secondfactor-js-$VERSION.tgz" --ignore-scripts --access public
+          # The leading ./ makes npm treat the argument as a local file. A
+          # path without it can be read as a git or registry specifier.
+          npm publish "./secondfactor-js-$VERSION.tgz" --ignore-scripts --access public
 
   # Tagging needs write access to the repository, which no other job holds.
   tag:

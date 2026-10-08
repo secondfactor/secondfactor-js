@@ -403,8 +403,9 @@ function timeoutSignal(ms: number): { signal?: AbortSignal } {
   }
   if (typeof AbortController === "function") {
     const controller = new AbortController();
-    // ponytail: the timer is not cleared once the answer arrives; aborting a
-    // finished request does nothing, so the cost is one idle timer per call.
+    // The timer is not cleared once the answer arrives. Aborting a finished
+    // request does nothing, so the cost is one idle timer per call, which is
+    // acceptable for the few calls a verification makes.
     setTimeout(() => controller.abort(), ms);
     return { signal: controller.signal };
   }
