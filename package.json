@@ -34,12 +34,18 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lambda-payments/secondfactor-js.git"
+    "url": "git+https://github.com/secondfactor/secondfactor-js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/secondfactor/secondfactor-js/issues"
   },
   "homepage": "https://secondfactor.ai",
   "keywords": ["otp", "2fa", "phone-verification", "sms", "whatsapp", "react", "react-native", "secondfactor"],
+  "publishConfig": {
+    "access": "public"
+  },
   "devDependencies": {
-    "tsdown": "^0.23.0",
-    "typescript": "^7.0.2"
+    "tsdown": "0.23.0",
+    "typescript": "7.0.2"
   }
 }
