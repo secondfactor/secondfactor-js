@@ -3,6 +3,32 @@
 All notable changes to `@secondfactor/js` are recorded here. The project
 follows [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+The library is now the client half of hosted verification. secondfactor.ai no
+longer has a headless mode, so a browser or an app never sends or checks codes
+itself: the user verifies on our hosted page.
+
+### Added
+
+- `redirectToVerification(url)` sends the browser to the hosted page, after
+  checking that `url` is one; a `javascript:` URL or any other URL throws a
+  `TypeError` and is not followed.
+- `takeVerificationReturn()` reads `sf_session_id` and `sf_return_token` from
+  the return page's URL and removes them from the address bar.
+- `parseVerificationReturn(url)` reads them from any URL, for React Native.
+
+### Removed
+
+- Session mode (`SecondFactor.withSession`, `VerificationSession`), which
+  drove a headless session from your own screens. The API no longer creates
+  headless sessions, so it could not have worked.
+- Proxy mode (`new SecondFactor(proxyBaseUrl)`, with `send`, `check`,
+  `resend`, `start` and `verify`). Send and check codes from your server with
+  the `secondfactor` package instead.
+- `SecondFactorError` and `CLIENT_HEADER`: the library no longer makes
+  requests.
+
 ## 0.1.2 — 2026-10-08
 
 No changes to the library's code or behaviour.

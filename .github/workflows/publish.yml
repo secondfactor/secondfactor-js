@@ -46,7 +46,7 @@ jobs:
         run: npm ci --ignore-scripts
       - name: The two version declarations agree
         id: version
-        # `VERSION` in src/index.ts is what the `X-SF-Client` header reports,
+        # `VERSION` in src/index.ts is what the library reports as its version,
         # so it must match the version npm shows.
         run: |
           package="$(node -p 'require("./package.json").version')"

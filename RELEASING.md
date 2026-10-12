@@ -36,7 +36,7 @@ publish. No npm token exists for this package, and none should be created.
 1. Choose the version under [Semantic Versioning](https://semver.org/). Set it
    in **both** `package.json` (`npm version <version> --no-git-tag-version`
    does this) and `src/index.ts` (`VERSION`); they must match, because
-   `VERSION` is what the `X-SF-Client` header reports. The workflow refuses to
+   `VERSION` is what the library reports as its own version. The workflow refuses to
    publish when they differ.
 2. Move the `unreleased` heading in `CHANGELOG.md` to the version and today's
    date.

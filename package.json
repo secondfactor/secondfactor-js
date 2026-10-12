@@ -1,7 +1,7 @@
 {
   "name": "@secondfactor/js",
   "version": "0.1.2",
-  "description": "secondfactor.ai for browsers and React Native: headless phone verification against a session your server created. No dependencies.",
+  "description": "secondfactor.ai for browsers and React Native: send users to the hosted verification page and read the result when they return. No dependencies.",
   "license": "MIT",
   "type": "module",
   "main": "./dist/index.cjs",
