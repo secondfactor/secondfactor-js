@@ -20,7 +20,7 @@
 
 /** This package's version. The `publish` workflow checks it against
  * `package.json`. */
-export const VERSION = "0.1.2";
+export const VERSION = "0.2.0";
 
 /** The two parameters the hosted page adds to your return URL. */
 export interface VerificationReturn {

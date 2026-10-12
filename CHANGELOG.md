@@ -3,7 +3,7 @@
 All notable changes to `@secondfactor/js` are recorded here. The project
 follows [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## 0.2.0 — 2026-10-12
 
 The library is now the client half of hosted verification. secondfactor.ai no
 longer has a headless mode, so a browser or an app never sends or checks codes

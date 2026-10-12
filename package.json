@@ -1,6 +1,6 @@
 {
   "name": "@secondfactor/js",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "secondfactor.ai for browsers and React Native: send users to the hosted verification page and read the result when they return. No dependencies.",
   "license": "MIT",
   "type": "module",
